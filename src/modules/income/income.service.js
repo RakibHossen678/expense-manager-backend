@@ -3,7 +3,7 @@ import { ApiError } from '../../errors/ApiError.js';
 import { buildListFilter, buildPagination, buildPaginationMeta } from '../../helper/utils/queryBuilder.js';
 
 const buildOwnerScope = (userId) => ({
-  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+  $or: [{ createdBy: userId }, { createdBy: null }],
 });
 
 const buildUserFilter = (userId, query) => ({

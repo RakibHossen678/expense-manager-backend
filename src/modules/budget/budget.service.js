@@ -9,7 +9,7 @@ const getMonthBounds = (month, year) => {
 };
 
 const buildOwnerScope = (userId) => ({
-  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+  $or: [{ createdBy: userId }, { createdBy: null }],
 });
 
 /**

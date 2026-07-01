@@ -5,7 +5,7 @@ import { Budget } from '../budget/budget.model.js';
 const RECENT_LIMIT = 3;
 
 const buildOwnerScope = (userId) => ({
-  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+  $or: [{ createdBy: userId }, { createdBy: null }],
 });
 
 const getMonthBounds = (date = new Date()) => {

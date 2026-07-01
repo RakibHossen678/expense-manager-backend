@@ -2,7 +2,7 @@ import { Income } from '../income/income.model.js';
 import { Expense } from '../expense/expense.model.js';
 
 const buildOwnerScope = (userId) => ({
-  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+  $or: [{ createdBy: userId }, { createdBy: null }],
 });
 
 const getBounds = (preset, startDate, endDate) => {
