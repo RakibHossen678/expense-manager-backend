@@ -6,8 +6,8 @@ const DEFAULT_WIDTH = 4;
 export const buildPublicId = async (key, prefix, width = DEFAULT_WIDTH) => {
   const sequence = await Sequence.findOneAndUpdate(
     { key },
-    { $inc: { value: 1 }, $setOnInsert: { value: 0 } },
-    { new: true, upsert: true }
+    { $inc: { value: 1 } },
+    { returnDocument: 'after', upsert: true }
   );
 
   return `${prefix}${String(sequence.value).padStart(width, '0')}`;

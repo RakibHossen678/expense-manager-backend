@@ -109,8 +109,8 @@ const update = async (userId, id, payload) => {
       { $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)] },
       normalized,
       {
-      new: true,
-      runValidators: true,
+        returnDocument: 'after',
+        runValidators: true,
       }
     );
     if (!budget) {

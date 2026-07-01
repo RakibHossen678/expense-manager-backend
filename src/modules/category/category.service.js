@@ -26,7 +26,7 @@ const update = async (id, payload) => {
   delete safePayload.publicId;
 
   const category = await Category.findOneAndUpdate(buildDocumentIdentityFilter(id), safePayload, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   });
   if (!category) {

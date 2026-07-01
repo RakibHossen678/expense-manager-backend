@@ -152,7 +152,7 @@ const getDashboardSummary = async (userId) => {
     sumAmount(Expense, userId, { start: monthStart, end: monthEnd }),
     getHighestExpenseCategory(userId),
     Expense.find(buildOwnerScope(userId)).sort({ date: -1 }).limit(RECENT_LIMIT),
-    Income.find(buildOwnerScope(userId)).sort({ date: -1 }).limit(RECENT_LIMIT),
+    Income.find(buildOwnerScope(userId)).sort({ createdAt: -1 }).limit(RECENT_LIMIT),
     getMonthlySummary(userId, 6),
   ]);
 

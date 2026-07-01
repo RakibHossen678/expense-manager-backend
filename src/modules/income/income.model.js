@@ -1,13 +1,13 @@
 import mongoose from 'mongoose';
 import { baseModelPlugin } from '../../utils/baseModelPlugin.js';
-import { INCOME_CATEGORIES } from '../../constants/incomeCategories.js';
 import { isValidCategory } from '../../helper/utils/categoryValidator.js';
 
 /**
- * Income entry. Matches the spec's data model: Title, Amount, Category,
- * Date, Description (optional), Notes (optional). Kept as a fully separate
- * collection/API from Expense per the spec (no unified Transaction model).
+ * Income entry. Stored on a monthly basis so the UI can work with month
+ * and year instead of a specific day.
  */
+const buildMonthStartDate = (month, year) => new Date(year, month - 1, 1);
+
 const incomeSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -32,10 +32,20 @@ const incomeSchema = new mongoose.Schema({
       message: (props) => `"${props.value}" is not a valid income category`,
     },
   },
+  month: {
+    type: Number,
+    min: 1,
+    max: 12,
+    index: true,
+  },
+  year: {
+    type: Number,
+    index: true,
+  },
   date: {
     type: Date,
-    required: [true, 'Date is required'],
-    default: Date.now,
+    default: undefined,
+    index: true,
   },
   description: {
     type: String,
@@ -62,11 +72,50 @@ const incomeSchema = new mongoose.Schema({
   },
 });
 
-// Supports date-range queries (reports, dashboard) and category filtering
+incomeSchema.pre('validate', function normalizeIncomePeriod(next) {
+  const month = Number(this.month);
+  const year = Number(this.year);
+  const hasMonth = Number.isInteger(month) && month >= 1 && month <= 12;
+  const hasYear = Number.isInteger(year) && year >= 2000;
+  const hasDate = this.date instanceof Date && !Number.isNaN(this.date.getTime());
+
+  if (hasMonth) this.month = month;
+  if (hasYear) this.year = year;
+
+  if (hasMonth && hasYear) {
+    this.date = buildMonthStartDate(month, year);
+  } else if (hasDate) {
+    this.month = this.date.getMonth() + 1;
+    this.year = this.date.getFullYear();
+    this.date = buildMonthStartDate(this.month, this.year);
+  }
+
+  next();
+});
+
+// Supports month-based queries and backward-compatible date lookups.
+incomeSchema.index({ year: 1, month: 1 });
+incomeSchema.index({ createdBy: 1, year: -1, month: -1 });
 incomeSchema.index({ date: -1 });
 incomeSchema.index({ category: 1 });
-incomeSchema.index({ createdBy: 1, date: -1 });
 
 incomeSchema.plugin(baseModelPlugin);
+
+incomeSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: (_doc, ret) => {
+    ret.id = ret.publicId || ret._id.toString();
+
+    if ((!ret.month || !ret.year) && ret.date) {
+      const date = new Date(ret.date);
+      ret.month = ret.month || date.getMonth() + 1;
+      ret.year = ret.year || date.getFullYear();
+    }
+
+    delete ret._id;
+    return ret;
+  },
+});
 
 export const Income = mongoose.model('Income', incomeSchema);
