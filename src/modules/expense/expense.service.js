@@ -1,5 +1,6 @@
 import { Expense } from './expense.model.js';
 import { ApiError } from '../../errors/ApiError.js';
+import { buildDocumentIdentityFilter, buildPublicId } from '../../helper/utils/publicId.js';
 import { buildListFilter, buildPagination, buildPaginationMeta } from '../../helper/utils/queryBuilder.js';
 
 const buildOwnerScope = (userId) => ({
@@ -23,7 +24,7 @@ const getAll = async (userId, query) => {
 };
 
 const getById = async (userId, id) => {
-  const expense = await Expense.findOne({ _id: id, ...buildOwnerScope(userId) });
+  const expense = await Expense.findOne({ $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)] });
   if (!expense) {
     throw new ApiError(404, 'Expense entry not found');
   }
@@ -31,17 +32,25 @@ const getById = async (userId, id) => {
 };
 
 const create = async (userId, payload) => {
-  return Expense.create({ ...payload, createdBy: userId });
+  return Expense.create({
+    ...payload,
+    publicId: await buildPublicId('expense', 'EXP'),
+    createdBy: userId,
+  });
 };
 
 const update = async (userId, id, payload) => {
   const safePayload = { ...payload };
   delete safePayload.createdBy;
 
-  const expense = await Expense.findOneAndUpdate({ _id: id, ...buildOwnerScope(userId) }, safePayload, {
+  const expense = await Expense.findOneAndUpdate(
+    { $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)] },
+    safePayload,
+    {
     new: true,
     runValidators: true,
-  });
+    }
+  );
   if (!expense) {
     throw new ApiError(404, 'Expense entry not found');
   }
@@ -49,7 +58,9 @@ const update = async (userId, id, payload) => {
 };
 
 const remove = async (userId, id) => {
-  const expense = await Expense.findOneAndDelete({ _id: id, ...buildOwnerScope(userId) });
+  const expense = await Expense.findOneAndDelete({
+    $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)],
+  });
   if (!expense) {
     throw new ApiError(404, 'Expense entry not found');
   }

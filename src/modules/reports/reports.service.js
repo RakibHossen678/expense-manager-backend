@@ -1,8 +1,17 @@
+import mongoose from 'mongoose';
 import { Income } from '../income/income.model.js';
 import { Expense } from '../expense/expense.model.js';
 
+const asObjectId = (value) => {
+  if (mongoose.Types.ObjectId.isValid(value)) {
+    return new mongoose.Types.ObjectId(value);
+  }
+
+  return value;
+};
+
 const buildOwnerScope = (userId) => ({
-  $or: [{ createdBy: userId }, { createdBy: null }],
+  $or: [{ createdBy: asObjectId(userId) }, { createdBy: null }],
 });
 
 const getBounds = (preset, startDate, endDate) => {

@@ -1,9 +1,10 @@
 import { ApiError } from '../../errors/ApiError.js';
+import { buildPublicId } from '../../helper/utils/publicId.js';
 import { createAuthToken } from '../../helper/utils/authToken.js';
 import { User } from './user.model.js';
 
 const sanitizeUser = (user) => ({
-  id: user._id.toString(),
+  id: user.publicId || user._id.toString(),
   name: user.name || '',
   email: user.email,
   tokenVersion: user.tokenVersion,
@@ -17,7 +18,11 @@ const register = async ({ name = '', email, password }) => {
     throw new ApiError(409, 'An account with that email already exists');
   }
 
-  const user = new User({ name, email });
+  const user = new User({
+    publicId: await buildPublicId('user', 'USR'),
+    name,
+    email,
+  });
   user.setPassword(password);
 
   await user.save();

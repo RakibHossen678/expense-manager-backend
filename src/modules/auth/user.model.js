@@ -28,6 +28,13 @@ const verifyPassword = (password, storedPassword) => {
 
 const userSchema = new mongoose.Schema(
   {
+    publicId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+      trim: true,
+    },
     name: {
       type: String,
       trim: true,

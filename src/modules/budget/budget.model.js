@@ -35,6 +35,13 @@ const budgetSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Year is required'],
   },
+  publicId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+    trim: true,
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

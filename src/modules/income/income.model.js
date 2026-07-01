@@ -47,6 +47,13 @@ const incomeSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Notes must be 500 characters or fewer'],
   },
+  publicId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+    trim: true,
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

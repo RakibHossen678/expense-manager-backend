@@ -33,6 +33,13 @@ const categorySchema = new mongoose.Schema({
     default: '#8a8d99',
     trim: true,
   },
+  publicId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+    trim: true,
+  },
 });
 
 // Prevent duplicate category names within the same type

@@ -1,6 +1,16 @@
+import mongoose from 'mongoose';
 import { Budget } from './budget.model.js';
 import { Expense } from '../expense/expense.model.js';
 import { ApiError } from '../../errors/ApiError.js';
+import { buildDocumentIdentityFilter, buildPublicId } from '../../helper/utils/publicId.js';
+
+const asObjectId = (value) => {
+  if (mongoose.Types.ObjectId.isValid(value)) {
+    return new mongoose.Types.ObjectId(value);
+  }
+
+  return value;
+};
 
 const getMonthBounds = (month, year) => {
   const start = new Date(year, month - 1, 1);
@@ -9,7 +19,7 @@ const getMonthBounds = (month, year) => {
 };
 
 const buildOwnerScope = (userId) => ({
-  $or: [{ createdBy: userId }, { createdBy: null }],
+  $or: [{ createdBy: asObjectId(userId) }, { createdBy: null }],
 });
 
 /**
@@ -57,7 +67,7 @@ const getAll = async (userId, query) => {
 };
 
 const getById = async (userId, id) => {
-  const budget = await Budget.findOne({ _id: id, ...buildOwnerScope(userId) });
+  const budget = await Budget.findOne({ $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)] });
   if (!budget) {
     throw new ApiError(404, 'Budget not found');
   }
@@ -67,7 +77,12 @@ const getById = async (userId, id) => {
 const create = async (userId, payload) => {
   // Normalize an absent/empty category to null so the unique index
   // (category, month, year) correctly treats it as the "overall" budget.
-  const normalized = { ...payload, category: payload.category || null, createdBy: userId };
+  const normalized = {
+    ...payload,
+    category: payload.category || null,
+    publicId: await buildPublicId('budget', 'BUD'),
+    createdBy: userId,
+  };
 
   try {
     return await Budget.create(normalized);
@@ -90,10 +105,14 @@ const update = async (userId, id, payload) => {
   delete normalized.createdBy;
 
   try {
-    const budget = await Budget.findOneAndUpdate({ _id: id, ...buildOwnerScope(userId) }, normalized, {
+    const budget = await Budget.findOneAndUpdate(
+      { $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)] },
+      normalized,
+      {
       new: true,
       runValidators: true,
-    });
+      }
+    );
     if (!budget) {
       throw new ApiError(404, 'Budget not found');
     }
@@ -107,7 +126,9 @@ const update = async (userId, id, payload) => {
 };
 
 const remove = async (userId, id) => {
-  const budget = await Budget.findOneAndDelete({ _id: id, ...buildOwnerScope(userId) });
+  const budget = await Budget.findOneAndDelete({
+    $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)],
+  });
   if (!budget) {
     throw new ApiError(404, 'Budget not found');
   }
