@@ -27,12 +27,38 @@ const CONNECTION_OPTIONS = {
   bufferCommands: false, // fail queries immediately instead of buffering for 10s when disconnected
 };
 
+let connectionPromise = null;
+
 export const connectDB = async () => {
+  const { readyState } = mongoose.connection;
+  if (readyState === 1 || readyState === 2) {
+    if (readyState === 2 && connectionPromise) {
+      return connectionPromise;
+    }
+
+    return mongoose.connection;
+  }
+
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+
   try {
-    await mongoose.connect(env.MONGO_URI, CONNECTION_OPTIONS);
-    console.log(`MongoDB connected`);
+    connectionPromise = mongoose
+      .connect(env.MONGO_URI, CONNECTION_OPTIONS)
+      .then(() => {
+        console.log(`MongoDB connected`);
+        return mongoose.connection;
+      })
+      .catch((error) => {
+        connectionPromise = null;
+        throw error;
+      });
+
+    return await connectionPromise;
   } catch (error) {
     console.error('MongoDB connection failed:', error.message);
+    connectionPromise = null;
     process.exit(1);
   }
 };
@@ -43,6 +69,7 @@ export const connectDB = async () => {
  */
 export const disconnectDB = async () => {
   await mongoose.connection.close();
+  connectionPromise = null;
   console.log('MongoDB connection closed.');
 };
 

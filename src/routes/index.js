@@ -5,15 +5,12 @@ import incomeRoutes from '../modules/income/income.route.js';
 import expenseRoutes from '../modules/expense/expense.route.js';
 import budgetRoutes from '../modules/budget/budget.route.js';
 import reportsRoutes from '../modules/reports/reports.route.js';
+import authRoutes from '../modules/auth/auth.route.js';
+import { requireAuth } from '../middlewares/auth.js';
 
 const router = Router();
 
-router.use('/category', categoryRoutes);
-router.use('/dashboard', dashboardRoutes);
-router.use('/income', incomeRoutes);
-router.use('/expense', expenseRoutes);
-router.use('/budget', budgetRoutes);
-router.use('/reports', reportsRoutes);
+router.use('/auth', authRoutes);
 
 router.get('/health', (req, res) => {
   res.status(200).json({
@@ -22,5 +19,13 @@ router.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+router.use(requireAuth);
+router.use('/dashboard', dashboardRoutes);
+router.use('/income', incomeRoutes);
+router.use('/expense', expenseRoutes);
+router.use('/budget', budgetRoutes);
+router.use('/category', categoryRoutes);
+router.use('/reports', reportsRoutes);
 
 export default router;
