@@ -2,8 +2,16 @@ import { Expense } from './expense.model.js';
 import { ApiError } from '../../errors/ApiError.js';
 import { buildListFilter, buildPagination, buildPaginationMeta } from '../../helper/utils/queryBuilder.js';
 
-const getAll = async (query) => {
-  const filter = buildListFilter(query);
+const buildOwnerScope = (userId) => ({
+  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+});
+
+const buildUserFilter = (userId, query) => ({
+  $and: [buildListFilter(query), buildOwnerScope(userId)],
+});
+
+const getAll = async (userId, query) => {
+  const filter = buildUserFilter(userId, query);
   const { page, limit, skip } = buildPagination(query);
 
   const [items, totalCount] = await Promise.all([
@@ -14,20 +22,23 @@ const getAll = async (query) => {
   return { items, meta: buildPaginationMeta(totalCount, page, limit) };
 };
 
-const getById = async (id) => {
-  const expense = await Expense.findById(id);
+const getById = async (userId, id) => {
+  const expense = await Expense.findOne({ _id: id, ...buildOwnerScope(userId) });
   if (!expense) {
     throw new ApiError(404, 'Expense entry not found');
   }
   return expense;
 };
 
-const create = async (payload) => {
-  return Expense.create(payload);
+const create = async (userId, payload) => {
+  return Expense.create({ ...payload, createdBy: userId });
 };
 
-const update = async (id, payload) => {
-  const expense = await Expense.findByIdAndUpdate(id, payload, {
+const update = async (userId, id, payload) => {
+  const safePayload = { ...payload };
+  delete safePayload.createdBy;
+
+  const expense = await Expense.findOneAndUpdate({ _id: id, ...buildOwnerScope(userId) }, safePayload, {
     new: true,
     runValidators: true,
   });
@@ -37,8 +48,8 @@ const update = async (id, payload) => {
   return expense;
 };
 
-const remove = async (id) => {
-  const expense = await Expense.findByIdAndDelete(id);
+const remove = async (userId, id) => {
+  const expense = await Expense.findOneAndDelete({ _id: id, ...buildOwnerScope(userId) });
   if (!expense) {
     throw new ApiError(404, 'Expense entry not found');
   }

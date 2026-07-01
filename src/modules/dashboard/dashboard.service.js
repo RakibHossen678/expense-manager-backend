@@ -4,6 +4,10 @@ import { Budget } from '../budget/budget.model.js';
 
 const RECENT_LIMIT = 3;
 
+const buildOwnerScope = (userId) => ({
+  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+});
+
 const getMonthBounds = (date = new Date()) => {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
   const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
@@ -16,8 +20,11 @@ const getMonthBounds = (date = new Date()) => {
  * (rather than null/undefined, which would propagate awkwardly into math
  * elsewhere).
  */
-const sumAmount = async (Model, dateRange = null) => {
-  const match = dateRange ? { date: { $gte: dateRange.start, $lt: dateRange.end } } : {};
+const sumAmount = async (Model, userId, dateRange = null) => {
+  const match = {
+    ...(dateRange ? { date: { $gte: dateRange.start, $lt: dateRange.end } } : {}),
+    ...buildOwnerScope(userId),
+  };
   const result = await Model.aggregate([
     { $match: match },
     { $group: { _id: null, total: { $sum: '$amount' } } },
@@ -29,8 +36,9 @@ const sumAmount = async (Model, dateRange = null) => {
  * Returns the category with the highest total amount, or null if there are
  * no expense entries at all.
  */
-const getHighestExpenseCategory = async () => {
+const getHighestExpenseCategory = async (userId) => {
   const result = await Expense.aggregate([
+    { $match: buildOwnerScope(userId) },
     { $group: { _id: '$category', total: { $sum: '$amount' } } },
     { $sort: { total: -1 } },
     { $limit: 1 },
@@ -44,13 +52,13 @@ const getHighestExpenseCategory = async () => {
  * months (including the current month), oldest first — shaped for a
  * Recharts-friendly array. Months with no entries still appear, with 0.
  */
-const getMonthlySummary = async (months = 6) => {
+const getMonthlySummary = async (userId, months = 6) => {
   const now = new Date();
   const rangeStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
 
   const [incomeByMonth, expenseByMonth] = await Promise.all([
     Income.aggregate([
-      { $match: { date: { $gte: rangeStart } } },
+      { $match: { date: { $gte: rangeStart }, ...buildOwnerScope(userId) } },
       {
         $group: {
           _id: { year: { $year: '$date' }, month: { $month: '$date' } },
@@ -59,7 +67,7 @@ const getMonthlySummary = async (months = 6) => {
       },
     ]),
     Expense.aggregate([
-      { $match: { date: { $gte: rangeStart } } },
+      { $match: { date: { $gte: rangeStart }, ...buildOwnerScope(userId) } },
       {
         $group: {
           _id: { year: { $year: '$date' }, month: { $month: '$date' } },
@@ -97,12 +105,13 @@ const getMonthlySummary = async (months = 6) => {
  * overall budget has been set — the frontend renders this distinctly from
  * a real $0 remaining (e.g. "No budget set" vs "$0.00 left").
  */
-const getBudgetRemaining = async (currentMonthExpense) => {
+const getBudgetRemaining = async (userId, currentMonthExpense) => {
   const now = new Date();
   const overallBudget = await Budget.findOne({
     category: null,
     month: now.getMonth() + 1,
     year: now.getFullYear(),
+    ...buildOwnerScope(userId),
   });
 
   if (!overallBudget) return null;
@@ -115,7 +124,7 @@ const getBudgetRemaining = async (currentMonthExpense) => {
   };
 };
 
-const getDashboardSummary = async () => {
+const getDashboardSummary = async (userId) => {
   const { start: monthStart, end: monthEnd } = getMonthBounds();
 
   const [
@@ -128,18 +137,18 @@ const getDashboardSummary = async () => {
     recentIncome,
     monthlySummary,
   ] = await Promise.all([
-    sumAmount(Income),
-    sumAmount(Expense),
-    sumAmount(Income, { start: monthStart, end: monthEnd }),
-    sumAmount(Expense, { start: monthStart, end: monthEnd }),
-    getHighestExpenseCategory(),
-    Expense.find().sort({ date: -1 }).limit(RECENT_LIMIT),
-    Income.find().sort({ date: -1 }).limit(RECENT_LIMIT),
-    getMonthlySummary(6),
+    sumAmount(Income, userId),
+    sumAmount(Expense, userId),
+    sumAmount(Income, userId, { start: monthStart, end: monthEnd }),
+    sumAmount(Expense, userId, { start: monthStart, end: monthEnd }),
+    getHighestExpenseCategory(userId),
+    Expense.find(buildOwnerScope(userId)).sort({ date: -1 }).limit(RECENT_LIMIT),
+    Income.find(buildOwnerScope(userId)).sort({ date: -1 }).limit(RECENT_LIMIT),
+    getMonthlySummary(userId, 6),
   ]);
 
   // Depends on currentMonthExpense above, so it can't join the batch.
-  const budgetRemaining = await getBudgetRemaining(currentMonthExpense);
+  const budgetRemaining = await getBudgetRemaining(userId, currentMonthExpense);
 
   const totalBalance = totalIncome - totalExpense;
   // "Savings" here means net position (income minus expense) — same value

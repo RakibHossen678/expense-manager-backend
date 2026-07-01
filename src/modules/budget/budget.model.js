@@ -35,10 +35,16 @@ const budgetSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Year is required'],
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Creator is required'],
+    index: true,
+  },
 });
 
 // One budget per category (or overall, where category is null) per month
-budgetSchema.index({ category: 1, month: 1, year: 1 }, { unique: true });
+budgetSchema.index({ createdBy: 1, category: 1, month: 1, year: 1 }, { unique: true });
 
 budgetSchema.plugin(baseModelPlugin);
 

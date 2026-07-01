@@ -47,11 +47,18 @@ const incomeSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Notes must be 500 characters or fewer'],
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Creator is required'],
+    index: true,
+  },
 });
 
 // Supports date-range queries (reports, dashboard) and category filtering
 incomeSchema.index({ date: -1 });
 incomeSchema.index({ category: 1 });
+incomeSchema.index({ createdBy: 1, date: -1 });
 
 incomeSchema.plugin(baseModelPlugin);
 

@@ -8,13 +8,17 @@ const getMonthBounds = (month, year) => {
   return { start, end };
 };
 
+const buildOwnerScope = (userId) => ({
+  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+});
+
 /**
  * Sums expenses for a given month/year, optionally scoped to a category.
  * `category: null` means "all categories" (overall budget).
  */
-const getSpentAmount = async (month, year, category) => {
+const getSpentAmount = async (userId, month, year, category) => {
   const { start, end } = getMonthBounds(month, year);
-  const match = { date: { $gte: start, $lt: end } };
+  const match = { date: { $gte: start, $lt: end }, ...buildOwnerScope(userId) };
   if (category) match.category = category;
 
   const result = await Expense.aggregate([
@@ -29,8 +33,8 @@ const getSpentAmount = async (month, year, category) => {
  * progress percentage (for progress bars), and an exceeded flag (for the
  * spec's "budget exceeded warning").
  */
-const enrichBudget = async (budget) => {
-  const spent = await getSpentAmount(budget.month, budget.year, budget.category);
+const enrichBudget = async (userId, budget) => {
+  const spent = await getSpentAmount(userId, budget.month, budget.year, budget.category);
   const remaining = budget.amount - spent;
   const progress = Math.min((spent / budget.amount) * 100, 100);
 
@@ -43,27 +47,27 @@ const enrichBudget = async (budget) => {
   };
 };
 
-const getAll = async (query) => {
-  const filter = {};
+const getAll = async (userId, query) => {
+  const filter = buildOwnerScope(userId);
   if (query.month) filter.month = Number(query.month);
   if (query.year) filter.year = Number(query.year);
 
   const budgets = await Budget.find(filter).sort({ year: -1, month: -1, category: 1 });
-  return Promise.all(budgets.map(enrichBudget));
+  return Promise.all(budgets.map((budget) => enrichBudget(userId, budget)));
 };
 
-const getById = async (id) => {
-  const budget = await Budget.findById(id);
+const getById = async (userId, id) => {
+  const budget = await Budget.findOne({ _id: id, ...buildOwnerScope(userId) });
   if (!budget) {
     throw new ApiError(404, 'Budget not found');
   }
-  return enrichBudget(budget);
+  return enrichBudget(userId, budget);
 };
 
-const create = async (payload) => {
+const create = async (userId, payload) => {
   // Normalize an absent/empty category to null so the unique index
   // (category, month, year) correctly treats it as the "overall" budget.
-  const normalized = { ...payload, category: payload.category || null };
+  const normalized = { ...payload, category: payload.category || null, createdBy: userId };
 
   try {
     return await Budget.create(normalized);
@@ -80,12 +84,13 @@ const create = async (payload) => {
   }
 };
 
-const update = async (id, payload) => {
+const update = async (userId, id, payload) => {
   const normalized = { ...payload };
   if ('category' in payload) normalized.category = payload.category || null;
+  delete normalized.createdBy;
 
   try {
-    const budget = await Budget.findByIdAndUpdate(id, normalized, {
+    const budget = await Budget.findOneAndUpdate({ _id: id, ...buildOwnerScope(userId) }, normalized, {
       new: true,
       runValidators: true,
     });
@@ -101,8 +106,8 @@ const update = async (id, payload) => {
   }
 };
 
-const remove = async (id) => {
-  const budget = await Budget.findByIdAndDelete(id);
+const remove = async (userId, id) => {
+  const budget = await Budget.findOneAndDelete({ _id: id, ...buildOwnerScope(userId) });
   if (!budget) {
     throw new ApiError(404, 'Budget not found');
   }

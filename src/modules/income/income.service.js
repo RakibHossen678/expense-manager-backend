@@ -2,8 +2,16 @@ import { Income } from './income.model.js';
 import { ApiError } from '../../errors/ApiError.js';
 import { buildListFilter, buildPagination, buildPaginationMeta } from '../../helper/utils/queryBuilder.js';
 
-const getAll = async (query) => {
-  const filter = buildListFilter(query);
+const buildOwnerScope = (userId) => ({
+  $or: [{ createdBy: userId }, { createdBy: { $exists: false } }],
+});
+
+const buildUserFilter = (userId, query) => ({
+  $and: [buildListFilter(query), buildOwnerScope(userId)],
+});
+
+const getAll = async (userId, query) => {
+  const filter = buildUserFilter(userId, query);
   const { page, limit, skip } = buildPagination(query);
 
   const [items, totalCount] = await Promise.all([
@@ -14,20 +22,23 @@ const getAll = async (query) => {
   return { items, meta: buildPaginationMeta(totalCount, page, limit) };
 };
 
-const getById = async (id) => {
-  const income = await Income.findById(id);
+const getById = async (userId, id) => {
+  const income = await Income.findOne({ _id: id, ...buildOwnerScope(userId) });
   if (!income) {
     throw new ApiError(404, 'Income entry not found');
   }
   return income;
 };
 
-const create = async (payload) => {
-  return Income.create(payload);
+const create = async (userId, payload) => {
+  return Income.create({ ...payload, createdBy: userId });
 };
 
-const update = async (id, payload) => {
-  const income = await Income.findByIdAndUpdate(id, payload, {
+const update = async (userId, id, payload) => {
+  const safePayload = { ...payload };
+  delete safePayload.createdBy;
+
+  const income = await Income.findOneAndUpdate({ _id: id, ...buildOwnerScope(userId) }, safePayload, {
     new: true,
     runValidators: true,
   });
@@ -37,8 +48,8 @@ const update = async (id, payload) => {
   return income;
 };
 
-const remove = async (id) => {
-  const income = await Income.findByIdAndDelete(id);
+const remove = async (userId, id) => {
+  const income = await Income.findOneAndDelete({ _id: id, ...buildOwnerScope(userId) });
   if (!income) {
     throw new ApiError(404, 'Income entry not found');
   }
