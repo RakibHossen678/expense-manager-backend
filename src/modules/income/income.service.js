@@ -7,8 +7,6 @@ const buildOwnerScope = (userId) => ({
   $or: [{ createdBy: userId }, { createdBy: null }],
 });
 
-const buildMonthStartDate = (month, year) => new Date(year, month - 1, 1);
-
 const normalizeIncomePayload = (payload) => {
   const normalized = { ...payload };
 
@@ -20,34 +18,30 @@ const normalizeIncomePayload = (payload) => {
     normalized.year = Number(normalized.year);
   }
 
-  const hasMonth = Number.isInteger(normalized.month) && normalized.month >= 1 && normalized.month <= 12;
-  const hasYear = Number.isInteger(normalized.year) && normalized.year >= 2000;
-
-  if (hasMonth && hasYear) {
-    normalized.date = buildMonthStartDate(normalized.month, normalized.year);
-  } else if (normalized.date) {
+  if (normalized.date) {
     const date = new Date(normalized.date);
     if (!Number.isNaN(date.getTime())) {
       normalized.month = date.getMonth() + 1;
       normalized.year = date.getFullYear();
-      normalized.date = buildMonthStartDate(normalized.month, normalized.year);
     }
   }
+
+  delete normalized.date;
 
   return normalized;
 };
 
 const buildIncomeListFilter = (query) => {
   const { search, category, month, year, minAmount, maxAmount } = query;
-  const filter = {};
+  const andConditions = [];
 
   if (search) {
     const regex = new RegExp(search.trim(), 'i');
-    filter.$or = [{ title: regex }, { category: regex }, { notes: regex }];
+    andConditions.push({ $or: [{ title: regex }, { category: regex }, { notes: regex }] });
   }
 
   if (category) {
-    filter.category = category;
+    andConditions.push({ category });
   }
 
   const hasMonth = month !== undefined && month !== null && month !== '';
@@ -56,20 +50,28 @@ const buildIncomeListFilter = (query) => {
     const monthNumber = Number(month);
     const yearNumber = Number(year);
     if (Number.isInteger(monthNumber) && Number.isInteger(yearNumber)) {
-      filter.date = {
-        $gte: buildMonthStartDate(monthNumber, yearNumber),
-        $lt: buildMonthStartDate(monthNumber + 1 > 12 ? 1 : monthNumber + 1, monthNumber + 1 > 12 ? yearNumber + 1 : yearNumber),
-      };
+      andConditions.push({
+        $or: [
+          { month: monthNumber, year: yearNumber },
+          {
+            date: {
+              $gte: new Date(yearNumber, monthNumber - 1, 1),
+              $lt: new Date(yearNumber, monthNumber, 1),
+            },
+          },
+        ],
+      });
     }
   }
 
   if (minAmount || maxAmount) {
-    filter.amount = {};
-    if (minAmount) filter.amount.$gte = Number(minAmount);
-    if (maxAmount) filter.amount.$lte = Number(maxAmount);
+    const amountFilter = {};
+    if (minAmount) amountFilter.$gte = Number(minAmount);
+    if (maxAmount) amountFilter.$lte = Number(maxAmount);
+    andConditions.push({ amount: amountFilter });
   }
 
-  return filter;
+  return andConditions.length ? { $and: andConditions } : {};
 };
 
 const buildUserFilter = (userId, query) => ({
@@ -81,7 +83,7 @@ const getAll = async (userId, query) => {
   const { page, limit, skip } = buildPagination(query);
 
   const [items, totalCount] = await Promise.all([
-    Income.find(filter).sort({ date: -1, updatedAt: -1 }).skip(skip).limit(limit),
+    Income.find(filter).sort({ year: -1, month: -1, createdAt: -1 }).skip(skip).limit(limit),
     Income.countDocuments(filter),
   ]);
 

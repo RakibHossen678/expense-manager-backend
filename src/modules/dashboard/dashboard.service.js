@@ -23,6 +23,8 @@ const getMonthBounds = (date = new Date()) => {
   return { start, end };
 };
 
+const getYearMonthIndex = (year, month) => year * 12 + month;
+
 /**
  * Sums the `amount` field across all documents in a collection, optionally
  * scoped to a date range. Returns 0 if there are no matching documents
@@ -36,6 +38,14 @@ const sumAmount = async (Model, userId, dateRange = null) => {
   };
   const result = await Model.aggregate([
     { $match: match },
+    { $group: { _id: null, total: { $sum: '$amount' } } },
+  ]);
+  return result[0]?.total || 0;
+};
+
+const sumIncomeForMonth = async (userId, month, year) => {
+  const result = await Income.aggregate([
+    { $match: { month, year, ...buildOwnerScope(userId) } },
     { $group: { _id: null, total: { $sum: '$amount' } } },
   ]);
   return result[0]?.total || 0;
@@ -67,10 +77,10 @@ const getMonthlySummary = async (userId, months = 6) => {
 
   const [incomeByMonth, expenseByMonth] = await Promise.all([
     Income.aggregate([
-      { $match: { date: { $gte: rangeStart }, ...buildOwnerScope(userId) } },
+      { $match: buildOwnerScope(userId) },
       {
         $group: {
-          _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+          _id: { year: '$year', month: '$month' },
           total: { $sum: '$amount' },
         },
       },
@@ -148,7 +158,7 @@ const getDashboardSummary = async (userId) => {
   ] = await Promise.all([
     sumAmount(Income, userId),
     sumAmount(Expense, userId),
-    sumAmount(Income, userId, { start: monthStart, end: monthEnd }),
+    sumIncomeForMonth(userId, monthStart.getMonth() + 1, monthStart.getFullYear()),
     sumAmount(Expense, userId, { start: monthStart, end: monthEnd }),
     getHighestExpenseCategory(userId),
     Expense.find(buildOwnerScope(userId)).sort({ date: -1 }).limit(RECENT_LIMIT),

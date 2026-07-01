@@ -14,6 +14,13 @@ const buildOwnerScope = (userId) => ({
   $or: [{ createdBy: asObjectId(userId) }, { createdBy: null }],
 });
 
+const getYearMonthIndex = (year, month) => year * 12 + month;
+
+const getDateRangeMonthBounds = (start, end) => ({
+  startIndex: getYearMonthIndex(start.getFullYear(), start.getMonth() + 1),
+  endIndex: getYearMonthIndex(end.getFullYear(), end.getMonth() + 1),
+});
+
 const getBounds = (preset, startDate, endDate) => {
   const now = new Date();
 
@@ -60,9 +67,45 @@ const sumByCategory = async (Model, userId, dateFilter) => {
   ]);
 };
 
+const sumIncomeByPeriod = async (userId, startIndex, endIndex) => {
+  return Income.aggregate([
+    {
+      $match: {
+        ...buildOwnerScope(userId),
+        $expr: {
+          $and: [
+            { $gte: [{ $add: [{ $multiply: ['$year', 12] }, '$month'] }, startIndex] },
+            { $lte: [{ $add: [{ $multiply: ['$year', 12] }, '$month'] }, endIndex] },
+          ],
+        },
+      },
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } },
+  ]);
+};
+
+const sumIncomeByCategory = async (userId, startIndex, endIndex) => {
+  return Income.aggregate([
+    {
+      $match: {
+        ...buildOwnerScope(userId),
+        $expr: {
+          $and: [
+            { $gte: [{ $add: [{ $multiply: ['$year', 12] }, '$month'] }, startIndex] },
+            { $lte: [{ $add: [{ $multiply: ['$year', 12] }, '$month'] }, endIndex] },
+          ],
+        },
+      },
+    },
+    { $group: { _id: '$category', total: { $sum: '$amount' } } },
+    { $sort: { total: -1 } },
+  ]);
+};
+
 const getSummary = async (userId, { preset, startDate, endDate }) => {
   const { start, end } = getBounds(preset, startDate, endDate);
   const dateFilter = { $gte: start, $lt: end };
+  const { startIndex, endIndex } = getDateRangeMonthBounds(start, end);
 
   const [
     incomeAgg,
@@ -70,9 +113,9 @@ const getSummary = async (userId, { preset, startDate, endDate }) => {
     incomeByCategory,
     expenseByCategory,
   ] = await Promise.all([
-    Income.aggregate([{ $match: { date: dateFilter, ...buildOwnerScope(userId) } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+    sumIncomeByPeriod(userId, startIndex, endIndex),
     Expense.aggregate([{ $match: { date: dateFilter, ...buildOwnerScope(userId) } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-    sumByCategory(Income, userId, dateFilter),
+    sumIncomeByCategory(userId, startIndex, endIndex),
     sumByCategory(Expense, userId, dateFilter),
   ]);
 
@@ -104,15 +147,26 @@ const getSummary = async (userId, { preset, startDate, endDate }) => {
 
 const getMonthlyBreakdown = async (userId, { months = 12 }) => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const startIndex = getYearMonthIndex(now.getFullYear(), now.getMonth() + 1) - (months - 1);
+  const endIndex = getYearMonthIndex(now.getFullYear(), now.getMonth() + 1);
 
   const [incomeMonthly, expenseMonthly] = await Promise.all([
     Income.aggregate([
-      { $match: { date: { $gte: start }, ...buildOwnerScope(userId) } },
-      { $group: { _id: { year: { $year: '$date' }, month: { $month: '$date' } }, total: { $sum: '$amount' } } },
+      {
+        $match: {
+          ...buildOwnerScope(userId),
+          $expr: {
+            $and: [
+              { $gte: [{ $add: [{ $multiply: ['$year', 12] }, '$month'] }, startIndex] },
+              { $lte: [{ $add: [{ $multiply: ['$year', 12] }, '$month'] }, endIndex] },
+            ],
+          },
+        },
+      },
+      { $group: { _id: { year: '$year', month: '$month' }, total: { $sum: '$amount' } } },
     ]),
     Expense.aggregate([
-      { $match: { date: { $gte: start }, ...buildOwnerScope(userId) } },
+      { $match: { date: { $gte: new Date(now.getFullYear(), now.getMonth() - (months - 1), 1) }, ...buildOwnerScope(userId) } },
       { $group: { _id: { year: { $year: '$date' }, month: { $month: '$date' } }, total: { $sum: '$amount' } } },
     ]),
   ]);
