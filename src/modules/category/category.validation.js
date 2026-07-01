@@ -14,7 +14,12 @@ const typeRule = body('type')
   .isIn(['income', 'expense'])
   .withMessage('Type must be either "income" or "expense"');
 
-const idParamRule = param('id').isMongoId().withMessage('Invalid category id');
+const idParamRule = param('id')
+  .trim()
+  .notEmpty()
+  .withMessage('Invalid category id')
+  .matches(/^(?:[A-Z]{2,5}\d+|[0-9a-fA-F]{24})$/)
+  .withMessage('Invalid category id');
 
 export const categoryValidation = {
   create: [nameRule, typeRule],

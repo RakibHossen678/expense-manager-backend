@@ -26,7 +26,12 @@ const yearRule = body('year')
   .isInt({ min: 2000, max: 2100 })
   .withMessage('Year must be a valid year');
 
-const idParamRule = param('id').isMongoId().withMessage('Invalid budget id');
+const idParamRule = param('id')
+  .trim()
+  .notEmpty()
+  .withMessage('Invalid budget id')
+  .matches(/^(?:[A-Z]{2,5}\d+|[0-9a-fA-F]{24})$/)
+  .withMessage('Invalid budget id');
 
 export const budgetValidation = {
   create: [categoryRule, amountRule, monthRule, yearRule],

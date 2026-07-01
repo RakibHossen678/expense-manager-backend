@@ -49,7 +49,12 @@ const notesRule = body('notes')
   .isLength({ max: 500 })
   .withMessage('Notes must be 500 characters or fewer');
 
-const idParamRule = param('id').isMongoId().withMessage('Invalid income id');
+const idParamRule = param('id')
+  .trim()
+  .notEmpty()
+  .withMessage('Invalid income id')
+  .matches(/^(?:[A-Z]{2,5}\d+|[0-9a-fA-F]{24})$/)
+  .withMessage('Invalid income id');
 
 export const incomeValidation = {
   create: [titleRule, amountRule, categoryRule, monthRule, yearRule, descriptionRule, notesRule],

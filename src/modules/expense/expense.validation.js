@@ -41,7 +41,12 @@ const notesRule = body('notes')
   .isLength({ max: 500 })
   .withMessage('Notes must be 500 characters or fewer');
 
-const idParamRule = param('id').isMongoId().withMessage('Invalid expense id');
+const idParamRule = param('id')
+  .trim()
+  .notEmpty()
+  .withMessage('Invalid expense id')
+  .matches(/^(?:[A-Z]{2,5}\d+|[0-9a-fA-F]{24})$/)
+  .withMessage('Invalid expense id');
 
 export const expenseValidation = {
   create: [titleRule, amountRule, categoryRule, dateRule, descriptionRule, notesRule],
