@@ -1,7 +1,11 @@
 import cors from 'cors';
-import { env } from '../config/env.js';
 
-const allowedOrigins = env.CORS_ORIGIN.split(',').map((origin) => origin.trim());
+// Keep the allowlist in code so multiple frontend origins can be added
+// directly without relying on a comma-separated env var.
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
 
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
