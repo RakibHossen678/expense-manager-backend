@@ -5,6 +5,7 @@ import cors from 'cors';
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4173',
+  "https://expense-manager-frontend-cyan.vercel.app"
 ];
 
 export const corsMiddleware = cors({
