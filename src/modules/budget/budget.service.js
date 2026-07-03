@@ -102,7 +102,7 @@ const create = async (userId, payload) => {
 const update = async (userId, id, payload) => {
   const normalized = { ...payload };
   if ('category' in payload) normalized.category = payload.category || null;
-  delete normalized.createdBy;
+  normalized.createdBy = userId;
 
   try {
     const budget = await Budget.findOneAndUpdate(

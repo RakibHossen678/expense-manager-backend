@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { baseModelPlugin } from '../../utils/baseModelPlugin.js';
-import { isValidCategory } from '../../helper/utils/categoryValidator.js';
+import { isValidCategory, resolveCreatedByFromContext } from '../../helper/utils/categoryValidator.js';
 
 /**
  * Income entry. Stored on a monthly basis so the UI can work with month
@@ -22,11 +22,12 @@ const incomeSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
     // Validated against the fixed list PLUS any custom categories the user
-    // has created (see helper/utils/categoryValidator.js) — a plain enum
-    // here would silently reject custom categories created via the
-    // Category module, making that feature non-functional.
+    // has created. The user-owned custom category lookup is scoped to the
+    // authenticated user via createdBy.
     validate: {
-      validator: (value) => isValidCategory(value, 'income'),
+      validator: function validateIncomeCategory(value) {
+        return isValidCategory(value, 'income', resolveCreatedByFromContext(this));
+      },
       message: (props) => `"${props.value}" is not a valid income category`,
     },
   },

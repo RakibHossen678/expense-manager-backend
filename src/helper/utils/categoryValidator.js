@@ -18,26 +18,29 @@ const FIXED_CATEGORIES = {
   expense: EXPENSE_CATEGORIES,
 };
 
+export const resolveCreatedByFromContext = (context) => {
+  if (!context) return null;
+
+  if (context.createdBy) {
+    return context.createdBy;
+  }
+
+  if (typeof context.getUpdate === 'function') {
+    const update = context.getUpdate() || {};
+    return update.createdBy || update.$set?.createdBy || null;
+  }
+
+  return null;
+};
+
 /**
  * True if `value` is one of the fixed categories for `type`, OR a custom
- * category the user has created (stored in the Category collection).
- * Used by both the Mongoose schema validator (income.model.js /
- * expense.model.js / budget.model.js) and indirectly relied upon by the
- * controller layer, so a category created via the Category module is
- * actually usable on entries — a plain static enum would silently reject
- * it.
- *
- * Important: if the Category.exists() lookup itself fails (e.g. DB
- * temporarily unreachable), that's an infrastructure error, not "this
- * category is invalid". We let it propagate so errorHandler.js's
- * normalizeError treats it as an unexpected 500, not a 400 validation
- * failure — Mongoose's validate() would otherwise wrap any thrown error
- * from a custom validator into a ValidationError, masking the distinction.
+ * category created by `userId`.
  */
-export const isValidCategory = async (value, type) => {
+export const isValidCategory = async (value, type, userId) => {
   if (FIXED_CATEGORIES[type].includes(value)) return true;
 
   const Category = await getCategoryModel();
-  const exists = await Category.exists({ name: value, type });
+  const exists = await Category.exists({ name: value, type, createdBy: userId });
   return Boolean(exists);
 };

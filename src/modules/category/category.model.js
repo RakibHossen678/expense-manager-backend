@@ -4,11 +4,17 @@ import { baseModelPlugin } from '../../utils/baseModelPlugin.js';
 /**
  * Categories here represent user-defined additions beyond the built-in
  * fixed lists (see src/constants/incomeCategories.js and
- * expenseCategories.js). The fixed lists are NOT stored in the DB — they're
- * always available. This collection only holds custom categories the user
- * creates, scoped by type so income and expense category pools stay separate.
+ * expenseCategories.js). The fixed lists are NOT stored in the DB.
+ * This collection only holds custom categories the user creates, scoped by
+ * user and type so income and expense category pools stay separate.
  */
 const categorySchema = new mongoose.Schema({
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Creator is required'],
+    index: true,
+  },
   name: {
     type: String,
     required: [true, 'Category name is required'],
@@ -42,8 +48,11 @@ const categorySchema = new mongoose.Schema({
   },
 });
 
-// Prevent duplicate category names within the same type
-categorySchema.index({ name: 1, type: 1 }, { unique: true });
+// Prevent duplicate category names within the same type for the same user.
+categorySchema.index(
+  { createdBy: 1, name: 1, type: 1 },
+  { unique: true, partialFilterExpression: { createdBy: { $type: 'objectId' } } }
+);
 
 categorySchema.plugin(baseModelPlugin);
 

@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import { baseModelPlugin } from '../../utils/baseModelPlugin.js';
-import { EXPENSE_CATEGORIES } from '../../constants/expenseCategories.js';
-import { isValidCategory } from '../../helper/utils/categoryValidator.js';
+import { isValidCategory, resolveCreatedByFromContext } from '../../helper/utils/categoryValidator.js';
 
 /**
  * Expense entry. Matches the spec's data model: Title, Amount, Category,
@@ -24,9 +23,11 @@ const expenseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
     // Validated against the fixed list PLUS any custom categories the user
-    // has created — see helper/utils/categoryValidator.js.
+    // has created â€” see helper/utils/categoryValidator.js.
     validate: {
-      validator: (value) => isValidCategory(value, 'expense'),
+      validator: function validateExpenseCategory(value) {
+        return isValidCategory(value, 'expense', resolveCreatedByFromContext(this));
+      },
       message: (props) => `"${props.value}" is not a valid expense category`,
     },
   },

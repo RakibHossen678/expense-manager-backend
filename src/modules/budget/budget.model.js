@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { baseModelPlugin } from '../../utils/baseModelPlugin.js';
-import { isValidCategory } from '../../helper/utils/categoryValidator.js';
+import { isValidCategory, resolveCreatedByFromContext } from '../../helper/utils/categoryValidator.js';
 
 /**
  * A budget is monthly and scoped to a specific expense category, OR can be
@@ -13,9 +13,11 @@ const budgetSchema = new mongoose.Schema({
     type: String,
     default: null, // null = overall monthly budget, not category-specific
     // null is valid (overall budget); any non-null value must be a real
-    // expense category — fixed list or custom (see categoryValidator.js).
+    // expense category owned by the current user.
     validate: {
-      validator: (value) => value === null || isValidCategory(value, 'expense'),
+      validator: function validateBudgetCategory(value) {
+        return value === null || isValidCategory(value, 'expense', resolveCreatedByFromContext(this));
+      },
       message: (props) => `"${props.value}" is not a valid expense category`,
     },
   },

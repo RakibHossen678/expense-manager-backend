@@ -41,7 +41,7 @@ const create = async (userId, payload) => {
 
 const update = async (userId, id, payload) => {
   const safePayload = { ...payload };
-  delete safePayload.createdBy;
+  safePayload.createdBy = userId;
 
   const expense = await Expense.findOneAndUpdate(
     { $and: [buildOwnerScope(userId), buildDocumentIdentityFilter(id)] },

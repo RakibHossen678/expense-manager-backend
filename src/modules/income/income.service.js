@@ -108,7 +108,7 @@ const create = async (userId, payload) => {
 
 const update = async (userId, id, payload) => {
   const safePayload = normalizeIncomePayload(payload);
-  delete safePayload.createdBy;
+  safePayload.createdBy = userId;
   delete safePayload.publicId;
 
   const income = await Income.findOneAndUpdate(
