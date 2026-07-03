@@ -13,7 +13,7 @@
     },
     {
       "src": "/",
-      "dest": "/api/health"
+      "dest": "api/index.js"
     }
   ]
 }

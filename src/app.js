@@ -10,6 +10,14 @@ import apiRoutes from './routes/index.js';
 
 const app = express();
 
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Expense Manager API is running',
+    health: '/api/health',
+  });
+});
+
 // Trust the first proxy hop (needed for correct req.ip behind a reverse
 // proxy / load balancer in production, which rate limiting depends on).
 app.set('trust proxy', 1);
