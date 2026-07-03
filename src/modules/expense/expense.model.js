@@ -3,9 +3,9 @@ import { baseModelPlugin } from '../../utils/baseModelPlugin.js';
 import { isValidCategory, resolveCreatedByFromContext } from '../../helper/utils/categoryValidator.js';
 
 /**
- * Expense entry. Matches the spec's data model: Title, Amount, Category,
- * Date, Description (optional), Notes (optional). Kept as a fully separate
- * collection/API from Income per the spec (no unified Transaction model).
+ * Expense entry. Kept as a fully separate collection/API from Income.
+ * Expenses are stored with month/year so the UI can browse them monthwise,
+ * while still allowing legacy date-based entries to be read.
  */
 const expenseSchema = new mongoose.Schema({
   title: {
@@ -31,9 +31,18 @@ const expenseSchema = new mongoose.Schema({
       message: (props) => `"${props.value}" is not a valid expense category`,
     },
   },
+  month: {
+    type: Number,
+    min: 1,
+    max: 12,
+    index: true,
+  },
+  year: {
+    type: Number,
+    index: true,
+  },
   date: {
     type: Date,
-    required: [true, 'Date is required'],
     default: Date.now,
   },
   description: {
@@ -61,11 +70,30 @@ const expenseSchema = new mongoose.Schema({
   },
 });
 
-// Supports date-range queries (reports, dashboard) and category filtering
-expenseSchema.index({ date: -1 });
+// Supports monthwise browsing plus category filtering.
+expenseSchema.index({ year: 1, month: 1 });
 expenseSchema.index({ category: 1 });
-expenseSchema.index({ createdBy: 1, date: -1 });
+expenseSchema.index({ createdBy: 1, year: -1, month: -1, createdAt: -1 });
 
 expenseSchema.plugin(baseModelPlugin);
+
+expenseSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: (_doc, ret) => {
+    ret.id = ret.publicId || ret._id.toString();
+
+    if ((!ret.month || !ret.year) && ret.date) {
+      const date = new Date(ret.date);
+      if (!Number.isNaN(date.getTime())) {
+        ret.month = ret.month || date.getMonth() + 1;
+        ret.year = ret.year || date.getFullYear();
+      }
+    }
+
+    delete ret._id;
+    return ret;
+  },
+});
 
 export const Expense = mongoose.model('Expense', expenseSchema);
