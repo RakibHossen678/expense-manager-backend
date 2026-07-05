@@ -21,3 +21,13 @@ export const logout = asyncHandler(async (req, res) => {
   await authService.logout(req.user.id);
   sendResponse(res, 200, 'Signed out successfully');
 });
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const result = await authService.forgotPassword(req.body);
+  sendResponse(res, 200, result.message);
+});
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  await authService.resetPassword(req.body);
+  sendResponse(res, 200, 'Password updated successfully');
+});
