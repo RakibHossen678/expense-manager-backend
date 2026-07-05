@@ -4,8 +4,6 @@ import cors from 'cors';
 // directly without relying on a comma-separated env var.
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:4173',
-  "https://expense-manager-frontend-cyan.vercel.app",
   "https://expense-manager-frontend-weld.vercel.app"
 ];
 
