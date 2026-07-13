@@ -35,6 +35,21 @@ const yearRule = body('year')
   .isInt({ min: 2000, max: 2100 })
   .withMessage('Year must be a valid year');
 
+const dateRule = query('date')
+  .optional()
+  .isISO8601({ strict: true })
+  .withMessage('Date must be a valid date');
+
+const startDateRule = query('startDate')
+  .optional()
+  .isISO8601({ strict: true })
+  .withMessage('startDate must be a valid date');
+
+const endDateRule = query('endDate')
+  .optional()
+  .isISO8601({ strict: true })
+  .withMessage('endDate must be a valid date');
+
 const descriptionRule = body('description')
   .optional({ values: 'falsy' })
   .trim()
@@ -72,6 +87,9 @@ export const expenseValidation = {
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
     query('category').optional().trim().isLength({ max: 40 }),
+    dateRule,
+    startDateRule,
+    endDateRule,
     query('month').optional().isInt({ min: 1, max: 12 }).withMessage('Month must be between 1 and 12'),
     query('year').optional().isInt({ min: 2000, max: 2100 }).withMessage('Year must be a valid year'),
     query('minAmount').optional().isFloat({ min: 0 }).withMessage('minAmount must be a positive number'),

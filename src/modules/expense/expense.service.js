@@ -8,6 +8,11 @@ const buildOwnerScope = (userId) => ({
   $or: [{ createdBy: userId }, { createdBy: null }],
 });
 
+const parseDateInput = (value) => {
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const normalizeExpenseDoc = (doc) => {
   if (!doc) return doc;
 
@@ -28,7 +33,6 @@ const normalizeExpenseDoc = (doc) => {
 
 const normalizeExpensePayload = (payload) => {
   const normalized = { ...payload };
-  delete normalized.date;
 
   if (normalized.month !== undefined && normalized.month !== null && normalized.month !== '') {
     normalized.month = Number(normalized.month);
@@ -43,6 +47,7 @@ const normalizeExpensePayload = (payload) => {
     if (!Number.isNaN(date.getTime())) {
       normalized.month = normalized.month || date.getMonth() + 1;
       normalized.year = normalized.year || date.getFullYear();
+      normalized.date = normalized.date || date;
     }
   }
 
@@ -50,7 +55,7 @@ const normalizeExpensePayload = (payload) => {
 };
 
 const buildExpenseListFilter = (query) => {
-  const { search, category, month, year, minAmount, maxAmount } = query;
+  const { search, category, startDate, endDate, month, year, minAmount, maxAmount } = query;
   const andConditions = [];
 
   if (search) {
@@ -60,6 +65,21 @@ const buildExpenseListFilter = (query) => {
 
   if (category) {
     andConditions.push({ category });
+  }
+
+  if (startDate || endDate) {
+    const start = startDate ? parseDateInput(startDate) : null;
+    const end = endDate ? parseDateInput(endDate) : null;
+    if (start || end) {
+      if (start) start.setHours(0, 0, 0, 0);
+      if (end) end.setHours(23, 59, 59, 999);
+      andConditions.push({
+        date: {
+          ...(start ? { $gte: start } : {}),
+          ...(end ? { $lte: end } : {}),
+        },
+      });
+    }
   }
 
   const hasMonth = month !== undefined && month !== null && month !== '';

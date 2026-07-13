@@ -7,6 +7,11 @@ const buildOwnerScope = (userId) => ({
   $or: [{ createdBy: userId }, { createdBy: null }],
 });
 
+const parseDateInput = (value) => {
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const normalizeIncomePayload = (payload) => {
   const normalized = { ...payload };
 
@@ -32,7 +37,7 @@ const normalizeIncomePayload = (payload) => {
 };
 
 const buildIncomeListFilter = (query) => {
-  const { search, category, month, year, minAmount, maxAmount } = query;
+  const { search, category, startDate, endDate, month, year, minAmount, maxAmount } = query;
   const andConditions = [];
 
   if (search) {
@@ -42,6 +47,16 @@ const buildIncomeListFilter = (query) => {
 
   if (category) {
     andConditions.push({ category });
+  }
+
+  if (startDate || endDate) {
+    const parsedDate = parseDateInput(startDate || endDate);
+    if (parsedDate) {
+      andConditions.push({
+        month: parsedDate.getMonth() + 1,
+        year: parsedDate.getFullYear(),
+      });
+    }
   }
 
   const hasMonth = month !== undefined && month !== null && month !== '';
